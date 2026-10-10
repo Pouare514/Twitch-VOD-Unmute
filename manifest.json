@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "Twitch VOD Unmute",
+  "short_name": "TVU",
+  "version": "1.0.0",
+  "description": "Restaure l'audio des VODs Twitch coupé (muted) en réécrivant le manifeste HLS (.m3u8) et en restaurant les segments .ts d'origine encore présents sur le CDN.",
+  "minimum_chrome_version": "111",
+  "icons": {
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": ["scripting", "storage"],
+  "host_permissions": [
+    "https://twitch.tv/*",
+    "https://*.twitch.tv/*",
+    "https://*.ttvnw.net/*",
+    "https://*.akamaized.net/*",
+    "https://*.cloudfront.net/*",
+    "https://*.twitchcdn.net/*"
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://twitch.tv/*", "https://*.twitch.tv/*"],
+      "js": ["src/bridge.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://twitch.tv/*", "https://*.twitch.tv/*"],
+      "js": ["src/injected.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/injected.js", "src/worker-patch.js"],
+      "matches": ["https://twitch.tv/*", "https://*.twitch.tv/*"]
+    }
+  ]
+}

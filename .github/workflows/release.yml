@@ -1,0 +1,50 @@
+name: Release
+
+# Découpe une release dès qu'un tag v* est poussé :
+#   git tag v1.0.0 && git push origin v1.0.0
+# (le tag doit matcher "version" dans manifest.json)
+# Déclenchement manuel possible depuis l'onglet Actions.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag à publier (ex : v1.0.0)'
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate extension
+        run: |
+          python3 -c "import json; d=json.load(open('manifest.json')); assert d['manifest_version']==3; print(d['name'], d['version'])"
+          for f in src/*.js; do node --check "$f" && echo "OK $f"; done
+          test -f icons/icon48.png && test -f icons/icon128.png && echo "icons OK"
+
+      - name: Pack zip
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then TAG="${{ inputs.tag }}"; else TAG="${GITHUB_REF_NAME}"; fi
+          VER="${TAG#v}"
+          grep -q "\"version\": \"${VER}\"" manifest.json || { echo "manifest.json ne contient pas \"version\": \"${VER}\" (tag ${TAG})"; exit 1; }
+          ZIP="twitch-vod-unmute-${VER}.zip"
+          zip -r "$ZIP" manifest.json src icons README.md LICENSE -x '*.DS_Store' '*/.DS_Store'
+          unzip -l "$ZIP"
+          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$TAG" --title "Twitch VOD Unmute $TAG" --generate-notes "$ZIP"
